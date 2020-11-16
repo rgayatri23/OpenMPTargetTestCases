@@ -4,9 +4,11 @@
 #define nT 64
 int main(int argc, char **argv) {
 #if USE_SINGLE
-  std::cout << "Using \"omp single \" to initialize scratch " << "\n";
+  std::cout << "Using \"omp single \" to initialize scratch "
+            << "\n";
 #else
-  std::cout << "Using \"omp barrier \" to initialize scratch " << "\n";
+  std::cout << "Using \"omp barrier \" to initialize scratch "
+            << "\n";
 #endif
 
   int scalar = 0;
@@ -16,13 +18,13 @@ int main(int argc, char **argv) {
   int *scratch = static_cast<int *>(
       omp_target_alloc(scratch_size, omp_get_default_device()));
 
-  auto lambda1 = [=](const int i, int *scratch, int& scalar) {
+  auto lambda1 = [=](const int i, int *scratch, int &scalar) {
     int *my_scratch = scratch + (omp_get_team_num() * nT);
-#pragma omp barrier
 #if USE_SINGLE
 #pragma omp single
     my_scratch[0] = 0;
 #else
+#pragma omp barrier
     my_scratch[0] = 0;
 #pragma omp barrier
 #endif
@@ -32,16 +34,17 @@ int main(int argc, char **argv) {
       my_scratch[0] += i + 1;
     } // end j
 
+#pragma omp single
     scalar += my_scratch[0];
   };
 
   auto lambda2 = [=](const int i, int *scratch) {
     int *my_scratch = scratch + (omp_get_team_num() * nT);
-#pragma omp barrier
 #if USE_SINGLE
 #pragma omp single
     my_scratch[0] = 0;
 #else
+#pragma omp barrier
     my_scratch[0] = 0;
 #pragma omp barrier
 #endif
@@ -57,15 +60,13 @@ int main(int argc, char **argv) {
   is_device_ptr(scratch)
   for (int i = 0; i < N; ++i) {
 #pragma omp parallel num_threads(nT)
-    {
-      lambda1(i, scratch, scalar);
-    } // end parallel
-  }   // end teams
+    { lambda1(i, scratch, scalar); } // end parallel
+  }                                  // end teams
 
   // Case 2 - reduction is over parallel-for level.
-#pragma omp target teams distribute thread_limit(nT) \
-  map(tofrom: vector[0:N]) \
-  is_device_ptr(scratch)
+#pragma omp target teams distribute thread_limit(nT) map(tofrom                \
+                                                         : vector [0:N])       \
+    is_device_ptr(scratch)
   for (int i = 0; i < N; ++i) {
 #pragma omp parallel num_threads(nT)
     {
@@ -76,12 +77,12 @@ int main(int argc, char **argv) {
   }   // end teams
 
   size_t result = 0;
-  for(int i = 0; i < N; ++i)
+  for (int i = 0; i < N; ++i)
     result += vector[i];
 
-  if(result != scalar)
-  {
-    printf("Failure : scalar!=vector, scalar = %d, vector = %zu\n",2*scalar, result);
+  if (result != scalar) {
+    printf("Failure : scalar!=vector, scalar = %d, vector = %zu\n", 2 * scalar,
+           result);
     exit(EXIT_FAILURE);
   }
 
