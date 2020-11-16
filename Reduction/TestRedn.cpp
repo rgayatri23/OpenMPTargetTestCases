@@ -1,7 +1,10 @@
+#include "../timing.h"
 #include <iostream>
 #include <omp.h>
+
 #define N 100
 #define nT 64
+
 int main(int argc, char **argv) {
 #if USE_SINGLE
   std::cout << "Using \"omp single \" to initialize scratch "
@@ -13,6 +16,8 @@ int main(int argc, char **argv) {
 
   int scalar = 0;
   int vector[N];
+
+  auto start = myclock::now();
 
   size_t scratch_size = N * nT * sizeof(int);
   int *scratch = static_cast<int *>(
@@ -76,6 +81,9 @@ int main(int argc, char **argv) {
     } // end parallel
   }   // end teams
 
+  auto stop = myclock::now();
+  myduration elapsed = stop - start;
+
   size_t result = 0;
   for (int i = 0; i < N; ++i)
     result += vector[i];
@@ -93,4 +101,7 @@ int main(int argc, char **argv) {
   }
   std::cout << "expected = " << ((N * N * (N + 1)) / 2) << std::endl;
   std::cout << "scalar   = " << scalar << std::endl;
+
+  std::cout << "duration = " << elapsed.count() << " [sec] "
+            << "\n";
 }
