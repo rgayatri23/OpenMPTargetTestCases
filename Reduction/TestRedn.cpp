@@ -3,6 +3,12 @@
 #define N 100
 #define nT 64
 int main(int argc, char **argv) {
+#if USE_SINGLE
+  std::cout << "Using \"omp single \" to initialize scratch " << "\n";
+#else
+  std::cout << "Using \"omp barrier \" to initialize scratch " << "\n";
+#endif
+
   int scalar = 0;
   int vector[N];
 
@@ -12,6 +18,15 @@ int main(int argc, char **argv) {
 
   auto lambda1 = [=](const int i, int *scratch, int& scalar) {
     int *my_scratch = scratch + (omp_get_team_num() * nT);
+#pragma omp barrier
+#if USE_SINGLE
+#pragma omp single
+    my_scratch[0] = 0;
+#else
+    my_scratch[0] = 0;
+#pragma omp barrier
+#endif
+
 #pragma omp for reduction(+ : my_scratch [0:1])
     for (int j = 0; j < N; ++j) {
       my_scratch[0] += i + 1;
@@ -22,6 +37,15 @@ int main(int argc, char **argv) {
 
   auto lambda2 = [=](const int i, int *scratch) {
     int *my_scratch = scratch + (omp_get_team_num() * nT);
+#pragma omp barrier
+#if USE_SINGLE
+#pragma omp single
+    my_scratch[0] = 0;
+#else
+    my_scratch[0] = 0;
+#pragma omp barrier
+#endif
+
 #pragma omp for reduction(+ : my_scratch [0:1])
     for (int j = 0; j < N; ++j) {
       my_scratch[0] += i + 1;
@@ -55,9 +79,10 @@ int main(int argc, char **argv) {
   for(int i = 0; i < N; ++i)
     result += vector[i];
 
-  if(result != 2*scalar)
+  if(result != scalar)
   {
     printf("Failure : scalar!=vector, scalar = %d, vector = %zu\n",2*scalar, result);
+    exit(EXIT_FAILURE);
   }
 
   if (scalar == ((N * N * (N + 1)) / 2)) {
